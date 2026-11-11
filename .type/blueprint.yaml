@@ -46,6 +46,16 @@ initialize:
       . "$NVM_DIR/nvm.sh" >/dev/null
       nvm use 24.22.1 >/dev/null
       export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+      # Local, non-secret development config (no .env file needed; the development
+      # secret_key_base is committed in config/secrets.yml). Exported values win over any .env.
+      export RAILS_ENV=development
+      export FRONTEND_URL=http://127.0.0.1:3000
+      export REDIS_URL=redis://127.0.0.1:6379
+      export POSTGRES_HOST=127.0.0.1
+      export POSTGRES_USERNAME=chatwoot
+      export POSTGRES_PASSWORD=chatwoot
+      export ACTIVE_STORAGE_SERVICE=local
+      export ENABLE_ACCOUNT_SIGNUP=false
       SH
       cat > "$HOME/.local/bin/chatwoot-services" <<'SH'
       #!/usr/bin/env bash
@@ -56,7 +66,8 @@ initialize:
       fi
       timeout 60 sh -c 'until pg_isready -h 127.0.0.1 -p 5432 -q; do sleep 1; done'
       if ! redis-cli -h 127.0.0.1 ping >/dev/null 2>&1; then
-        redis-server --daemonize yes --bind 127.0.0.1 --port 6379
+        mkdir -p "$HOME/.local/share/chatwoot-redis"
+        redis-server --daemonize yes --bind 127.0.0.1 --port 6379 --dir "$HOME/.local/share/chatwoot-redis"
       fi
       timeout 30 sh -c 'until redis-cli -h 127.0.0.1 ping >/dev/null 2>&1; do sleep 1; done'
       SH
@@ -91,7 +102,8 @@ initialize:
       nohup bundle exec sidekiq -C config/sidekiq.yml > log/sidekiq-dev.log 2>&1 &
       exec bin/rails s -b 0.0.0.0 -p 3000
       SH
-      chmod +x "$HOME/.local/bin/chatwoot-services" "$HOME/.local/bin/chatwoot-db-prepare" "$HOME/.local/bin/chatwoot-dev"
+      chmod +x "$HOME/.local/bin/chatwoot-services" \
+        "$HOME/.local/bin/chatwoot-db-prepare" "$HOME/.local/bin/chatwoot-dev"
       if [ -n "${ENVRC:-}" ] && [ -w "${ENVRC:-/nonexistent}" ]; then
         echo 'export PATH="$HOME/.rbenv/bin:$HOME/.rbenv/shims:$HOME/.local/bin:$PATH"' >> "$ENVRC"
       fi
@@ -103,20 +115,6 @@ maintenance:
       . "$HOME/.local/bin/chatwoot-env"
       bundle check >/dev/null || bundle install -j16
       pnpm install --frozen-lockfile
-  - name: Local .env (development only, no external services)
-    run: |
-      set -euo pipefail
-      if [ ! -f .env ]; then
-        cp .env.example .env
-        sed -i \
-          -e "s|^SECRET_KEY_BASE=.*|SECRET_KEY_BASE=$(openssl rand -hex 64)|" \
-          -e "s|^FRONTEND_URL=.*|FRONTEND_URL=http://127.0.0.1:3000|" \
-          -e "s|^REDIS_URL=.*|REDIS_URL=redis://127.0.0.1:6379|" \
-          -e "s|^POSTGRES_HOST=.*|POSTGRES_HOST=127.0.0.1|" \
-          -e "s|^POSTGRES_USERNAME=.*|POSTGRES_USERNAME=chatwoot|" \
-          -e "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=chatwoot|" \
-          .env
-      fi
   - name: Local Postgres role, databases, schema and seed
     run: |
       set -euo pipefail
@@ -130,7 +128,7 @@ knowledge:
     contents: |
       Start/restart everything (Postgres 17, Redis, pending migrations, Vite build, Sidekiq, Rails):
         $HOME/.local/bin/chatwoot-dev        # run from the repo root; foreground Rails on 0.0.0.0:3000
-      Order: chatwoot-services (pg_ctlcluster 17 main start; redis-server --daemonize on 127.0.0.1:6379)
+      Order: chatwoot-env (exports local config) -> chatwoot-services (pg_ctlcluster 17 main start; redis-server --daemonize on 127.0.0.1:6379)
       -> chatwoot-db-prepare -> bin/vite build -> sidekiq (background, log/sidekiq-dev.log) -> rails s.
       Services do not survive a new sandbox; always restart with chatwoot-dev. Only port 3000 needs previewing.
       The Vite dev server (Procfile.dev `vite`) is intentionally not used: behind a preview proxy its HMR
@@ -189,8 +187,9 @@ knowledge:
       Seed richer data: bundle exec rails search:setup_test_data, or Super Admin -> Accounts -> Seed.
   - name: secrets-and-config
     contents: |
-      No secrets are required for the core dashboard workflow. .env is generated locally from .env.example
-      (gitignored) with a random SECRET_KEY_BASE, local Postgres role chatwoot (loopback-only dev DB) and local Redis.
+      No secrets are required for the core dashboard workflow. No .env file is used: $HOME/.local/bin/chatwoot-env
+      exports loopback Postgres (role chatwoot, dev-only) and Redis settings, and Rails development uses the
+      secret_key_base committed in config/secrets.yml. Do not create a .env with credentials in snapshots.
       Optional integrations (SMTP, Facebook, Slack, Google OAuth, OpenAI/Captain, S3, Stripe) stay unconfigured;
       supply their variables (names in .env.example) via Type's encrypted environment storage if needed.
   - name: resource-notes
