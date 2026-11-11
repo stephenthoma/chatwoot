@@ -173,28 +173,151 @@ knowledge:
         "id": "chatwoot-login-reply",
         "name": "Sign in as the seeded agent and reply to a conversation",
         "outcomes": [
-          { "id": "login", "description": "Seeded agent John signs in; the Acme Inc dashboard loads its inbox and conversations", "startStep": 1, "endStep": 9 },
-          { "id": "reply", "description": "John's reply to Jane is sent and still shows after reload", "startStep": 10, "endStep": 18 }
+          {
+            "id": "login",
+            "description": "Seeded agent John signs in; the Acme Inc dashboard loads its inbox and conversations",
+            "startStep": 1,
+            "endStep": 9
+          },
+          {
+            "id": "reply",
+            "description": "John's reply to Jane is sent and still shows after reload",
+            "startStep": 10,
+            "endStep": 18
+          },
+          {
+            "id": "frame",
+            "description": "The app no longer sends X-Frame-Options, so Type's preview pane can embed it",
+            "startStep": 19,
+            "endStep": 21
+          }
         ],
         "steps": [
-          { "action": "goto", "path": "/app/login" },
-          { "action": "fill", "target": { "by": "label", "value": "email_address" }, "value": "{env:CHATWOOT_DEV_EMAIL}" },
-          { "action": "fill", "target": { "by": "css", "value": "input[data-testid=\"password_input\"]" }, "value": "{env:CHATWOOT_DEV_PASSWORD}" },
-          { "action": "click", "target": { "by": "role", "role": "button", "name": "Login" } },
-          { "action": "wait-for-pathname-not-equals", "path": "/app/login", "timeoutMs": 30000 },
-          { "action": "goto", "path": "/app/accounts/1/dashboard" },
-          { "action": "wait-for-text", "selector": "body", "value": "Please select a conversation from left pane", "timeoutMs": 60000 },
-          { "action": "wait-for-text", "selector": "body", "value": "All conversations loaded", "timeoutMs": 60000 },
-          { "action": "assert-text", "selector": "body", "value": "Acme Support" },
-          { "action": "goto", "path": "/app/accounts/1/conversations/1" },
-          { "action": "wait-for-visible-any", "selectors": [".ProseMirror"], "timeoutMs": 60000 },
-          { "action": "click", "target": { "by": "css", "value": ".ProseMirror" } },
-          { "action": "fill", "target": { "by": "css", "value": ".ProseMirror" }, "value": "Hi Jane, following up on your order {run:id}" },
-          { "action": "click", "target": { "by": "role", "role": "button", "name": "Send (CTRL + ↵)" } },
-          { "action": "goto", "path": "/app/accounts/1/conversations/1" },
-          { "action": "wait-for-text", "selector": "body", "value": "All conversations loaded", "timeoutMs": 60000 },
-          { "action": "wait-for-text", "selector": "body", "value": "following up on your order {run:id}", "timeoutMs": 60000 },
-          { "action": "assert-text", "selector": "body", "value": "Hi Jane, following up on your order {run:id}" }
+          {
+            "action": "goto",
+            "path": "/app/login"
+          },
+          {
+            "action": "fill",
+            "target": {
+              "by": "label",
+              "value": "email_address"
+            },
+            "value": "{env:CHATWOOT_DEV_EMAIL}"
+          },
+          {
+            "action": "fill",
+            "target": {
+              "by": "css",
+              "value": "input[data-testid=\"password_input\"]"
+            },
+            "value": "{env:CHATWOOT_DEV_PASSWORD}"
+          },
+          {
+            "action": "click",
+            "target": {
+              "by": "role",
+              "role": "button",
+              "name": "Login"
+            }
+          },
+          {
+            "action": "wait-for-pathname-not-equals",
+            "path": "/app/login",
+            "timeoutMs": 30000
+          },
+          {
+            "action": "goto",
+            "path": "/app/accounts/1/dashboard"
+          },
+          {
+            "action": "wait-for-text",
+            "selector": "body",
+            "value": "Please select a conversation from left pane",
+            "timeoutMs": 60000
+          },
+          {
+            "action": "wait-for-text",
+            "selector": "body",
+            "value": "All conversations loaded",
+            "timeoutMs": 60000
+          },
+          {
+            "action": "assert-text",
+            "selector": "body",
+            "value": "Acme Support"
+          },
+          {
+            "action": "goto",
+            "path": "/app/accounts/1/conversations/1"
+          },
+          {
+            "action": "wait-for-visible-any",
+            "selectors": [
+              ".ProseMirror"
+            ],
+            "timeoutMs": 60000
+          },
+          {
+            "action": "click",
+            "target": {
+              "by": "css",
+              "value": ".ProseMirror"
+            }
+          },
+          {
+            "action": "fill",
+            "target": {
+              "by": "css",
+              "value": ".ProseMirror"
+            },
+            "value": "Hi Jane, following up on your order {run:id}"
+          },
+          {
+            "action": "click",
+            "target": {
+              "by": "role",
+              "role": "button",
+              "name": "Send (CTRL + ↵)"
+            }
+          },
+          {
+            "action": "goto",
+            "path": "/app/accounts/1/conversations/1"
+          },
+          {
+            "action": "wait-for-text",
+            "selector": "body",
+            "value": "All conversations loaded",
+            "timeoutMs": 60000
+          },
+          {
+            "action": "wait-for-text",
+            "selector": "body",
+            "value": "following up on your order {run:id}",
+            "timeoutMs": 60000
+          },
+          {
+            "action": "assert-text",
+            "selector": "body",
+            "value": "Hi Jane, following up on your order {run:id}"
+          },
+          {
+            "action": "exec",
+            "command": "sh",
+            "args": [
+              "-c",
+              "curl -sI http://127.0.0.1:3000/app/login | tr -d '\\r' | grep -iE '^(HTTP/|x-frame-options)'; echo \"x-frame-options headers: $(curl -sI http://127.0.0.1:3000/app/login | grep -ci '^x-frame-options')\""
+            ]
+          },
+          {
+            "action": "assert-exit-code",
+            "equals": 0
+          },
+          {
+            "action": "assert-stdout",
+            "contains": "x-frame-options headers: 0"
+          }
         ]
       }
       Known app behavior (not an environment fault): in a fresh browser profile, the first SPA navigation
